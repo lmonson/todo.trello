@@ -1,3 +1,5 @@
+var table = require('text-table');
+
 var httpRequest = require('request');
 var http = require("http");
 var config = require("./config");
@@ -20,13 +22,23 @@ var printOptions2 = {
     value: 'name'
 };
 
+var cmds = {
+    list: printAllDoingCards,
+    due: printAllCardsWithDueDate
+};
+
+
 
 //printAllDoingCards();
-printAllCardsWithDueDate();
+//printAllCardsWithDueDate();
+
+_.forEach(argv._,function(cmd){
+    cmds[cmd]();
+});
 
 function printAllDoingCards() {
     GetBoards(function(allBoards){
-        GetLists(allBoards,function(allLists){//        console.log(_.map(allLists,'name'));
+        GetLists(allBoards,function(allLists){
             getCards(_.filter(allLists,{name:'Doing'}),function(cards){//            cards = _.groupBy(cards,'boardName');
                 print(cards,printOptions);
             });
@@ -36,15 +48,18 @@ function printAllDoingCards() {
 
 function printAllCardsWithDueDate() {
     GetBoards(function(allBoards){
-        GetLists(allBoards,function(allLists){//        console.log(_.map(allLists,'name'));
-            getCards(allLists,function(cards){//            cards = _.groupBy(cards,'boardName');
-                var dates = _(cards).filter('due').sortBy('due').map('due').uniq().value();
-                var groupedCards = _(cards).filter('due').groupBy('due').value();
-                _.forEach(dates,function(date){
-                    console.log(moment(date,'YYYY-MM-DD').format('MMMM Do YYYY'));
-                    var dateCards = groupedCards[date];
-                    print(dateCards,printOptions);                    
-                });
+        GetLists(allBoards,function(allLists){
+            getCards(allLists,function(cards){
+                var dates = _(cards)
+                                .filter('due')
+                                .map(function(card){
+                                    return [card.boardName,
+                                            moment(card.due,'YYYY-MM-DD').format('MMMM DD YYYY'),
+                                            card.name]
+                                })
+                                .value();
+                var t = table(dates);
+                console.log(t);
             });
         });
     });
@@ -53,7 +68,6 @@ function printAllCardsWithDueDate() {
 
 function GetBoards(completeCallback)
 {
-    console.log("@Boards");
     httpRequest('https://api.trello.com/1/members/me/boards?key='+config.api_key+'&token='+config.api_token, function (error, response, body) {
 
         if (!error) {
@@ -93,10 +107,6 @@ function GetLists(boards, completeCallback)
             }        
         }); 
     }
-
-
-
-    console.log("@GetLists")
     _.forEach(boards,readListsFromOneBoard);
 };
 
